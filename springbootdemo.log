@@ -1,0 +1,11 @@
+2020/11/16-18:31 [main] INFO  com.datablau.metadata.huaxiametadata.HuaxiametadataApplication- Starting HuaxiametadataApplication on DESKTOP-BT0QHKD with PID 11068 (D:\WorkTest\huaxiametadata\target\classes started by VEK5 in D:\WorkTest\huaxiametadata)
+2020/11/16-18:31 [main] INFO  com.datablau.metadata.huaxiametadata.HuaxiametadataApplication- No active profile set, falling back to default profiles: default
+2020/11/16-18:31 [main] INFO  org.springframework.boot.web.embedded.tomcat.TomcatWebServer- Tomcat initialized with port(s): 8080 (http)
+2020/11/16-18:31 [main] INFO  org.apache.catalina.core.StandardService- Starting service [Tomcat]
+2020/11/16-18:31 [main] INFO  org.apache.catalina.core.StandardEngine- Starting Servlet engine: [Apache Tomcat/9.0.38]
+2020/11/16-18:31 [main] INFO  org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/]- Initializing Spring embedded WebApplicationContext
+2020/11/16-18:31 [main] INFO  org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext- Root WebApplicationContext: initialization completed in 682 ms
+2020/11/16-18:31 [main] INFO  com.datablau.metadata.huaxiametadata.utils.LogConfig- ==========print log==========
+2020/11/16-18:31 [main] INFO  org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor- Initializing ExecutorService 'applicationTaskExecutor'
+2020/11/16-18:31 [main] INFO  org.springframework.boot.web.embedded.tomcat.TomcatWebServer- Tomcat started on port(s): 8080 (http) with context path ''
+2020/11/16-18:31 [main] INFO  com.datablau.metadata.huaxiametadata.HuaxiametadataApplication- Started HuaxiametadataApplication in 1.233 seconds (JVM running for 1.74)

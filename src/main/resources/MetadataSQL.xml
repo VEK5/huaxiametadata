@@ -1,0 +1,482 @@
+<?xml version="1.0" encoding="utf-8"?>
+<datasource>
+    <mysql>
+        <tables>
+            SELECT
+            NULL AS table_cat,
+            o.TABLE_SCHEMA AS table_schem,
+            o.TABLE_NAME AS table_name,
+            o.TABLE_TYPE AS table_type,
+            o.TABLE_COMMENT AS remarks,
+            '' AS database_info
+            FROM
+            information_schema.TABLES o
+            WHERE
+            o.TABLE_NAME LIKE '%'
+            AND o.TABLE_TYPE IN ('BASE TABLE')
+            # AND o.TABLE_SCHEMA = '数据库名称'
+            # AND o.TABLE_SCHEMA in ('', '', '', '', '')
+            AND o.TABLE_SCHEMA not in ('information_schema', 'performance_schema', 'sys', 'mysql')
+            ORDER BY
+            table_schem, table_name
+        </tables>
+        <columns>
+            SELECT
+            null as TABLE_CAT,
+            c.TABLE_SCHEMA as TABLE_SCHEM,
+            c.TABLE_NAME as TABLE_NAME,
+            c.COLUMN_NAME as COLUMN_NAME,
+            0 as DATA_TYPE,
+            c.COLUMN_TYPE as TYPE_NAME,
+            0 as COLUMN_SIZE,
+            0 as DECIMAL_DIGITS,
+            c.COLUMN_COMMENT as REMARKS,
+            c.COLUMN_DEFAULT as COLUMN_DEF,
+            c.ORDINAL_POSITION as ORDINAL_POSITION,
+            c.IS_NULLABLE as IS_NULLABLE,
+            case c.EXTRA WHEN 'auto_increment' THEN 'YES' ELSE 'NO' end IS_AUTOINCREMENT,
+            '' AS database_info
+            FROM
+            information_schema.COLUMNS c
+            # WHERE c.TABLE_SCHEMA = '数据库名称'
+            WHERE
+            c.TABLE_SCHEMA not in ('information_schema', 'performance_schema', 'sys', 'mysql')
+            ORDER BY
+            table_schem, table_name, ordinal_position
+        </columns>
+        <index>
+            select null as TABLE_CAT,
+            idx.TABLE_SCHEMA as TABLE_SCHEM,
+            idx.TABLE_NAME,
+            CASE WHEN idx.NON_UNIQUE = 1 THEN true ELSE false END as NON_UNIQUE,
+            null as INDEX_QUALIFIER,
+            idx.INDEX_NAME,
+            3 as TYPE,
+            idx.SEQ_IN_INDEX as ORDINAL_POSITION,
+            idx.COLUMN_NAME,
+            idx.COLLATION as ASC_OR_DESC,
+            if((ISNULL(idx.CARDINALITY) = 1 or LENGTH(trim(idx.CARDINALITY)) = 0), 0, idx.CARDINALITY) as CARDINALITY,
+            0 as PAGES,
+            null as FILTER_CONDITION,
+            '' AS database_info
+            from information_schema.statistics idx
+            #where table_schema = '数据库名称'
+            where idx.TABLE_SCHEMA not in ('information_schema', 'performance_schema', 'sys', 'mysql')
+            order by TABLE_SCHEM, TABLE_NAME, INDEX_NAME, ORDINAL_POSITION
+        </index>
+        <routines>
+            select
+            null as routine_cat,
+            ROUTINE_SCHEMA as routine_schem,
+            ROUTINE_NAME as routine_name,
+            ROUTINE_TYPE as routine_type,
+            1 as line,
+            case
+            when ROUTINE_TYPE = 'PROCEDURE'
+            then
+            CONCAT("create procedure ",
+            ROUTINE_NAME,
+            case when parameters is not null then CONCAT("\n(", parameters, ")\n") else "()\n" end,
+            SQL_DATA_ACCESS,
+            "\n",
+            CONCAT("COMMENT '", ROUTINE_COMMENT, "'\n"),
+            ROUTINE_DEFINITION)
+            else
+            CONCAT("create function ",
+            ROUTINE_NAME,
+            case when parameters is not null then CONCAT("\n(", parameters, ")\n") else "()\n" end,
+            case when return_v is not null then CONCAT("RETURNS ", return_v, "\n") else "\n" end,
+            SQL_DATA_ACCESS,
+            "\n",
+            CONCAT("COMMENT '", ROUTINE_COMMENT, "'\n"),
+            ROUTINE_DEFINITION)
+            end
+            as text,
+            '' AS database_info
+            from (
+            select r_all.*, pa_return.RETURN_V
+            from (
+            select r1.*, t1.PARAMETERS
+            from information_schema.ROUTINES r1
+            left join
+            (
+            select SPECIFIC_SCHEMA,
+            SPECIFIC_NAME,
+            GROUP_CONCAT(para SEPARATOR ',\n') as parameters
+            from (
+            select SPECIFIC_SCHEMA,
+            SPECIFIC_NAME,
+            (case
+            when ROUTINE_TYPE = 'PROCEDURE'
+            then CONCAT(PARAMETER_MODE, " ", PARAMETER_NAME, " ", DTD_IDENTIFIER)
+            else CONCAT(PARAMETER_NAME, " ", DTD_IDENTIFIER) END)
+            as para
+            from information_schema.PARAMETERS
+            where ROUTINE_TYPE in ('FUNCTION', 'PROCEDURE')
+            and ORDINAL_POSITION > 0
+            order by SPECIFIC_SCHEMA, SPECIFIC_NAME, ORDINAL_POSITION
+            ) as t
+            group by SPECIFIC_SCHEMA, SPECIFIC_NAME
+            ) as t1
+            on r1.ROUTINE_TYPE in ('FUNCTION', 'PROCEDURE') and r1.ROUTINE_SCHEMA = t1.SPECIFIC_SCHEMA and
+            r1.SPECIFIC_NAME = t1.SPECIFIC_NAME
+            ) as r_all
+            left join
+            (select SPECIFIC_SCHEMA, SPECIFIC_NAME, DTD_IDENTIFIER as RETURN_V
+            from information_schema.PARAMETERS
+            where ORDINAL_POSITION = 0) pa_return
+            on r_all.ROUTINE_SCHEMA = pa_return.SPECIFIC_SCHEMA and r_all.SPECIFIC_NAME = pa_return.SPECIFIC_NAME
+            ) as p
+            #where ROUTINE_SCHEMA = '数据库名称'
+            where ROUTINE_SCHEMA not in ('information_schema', 'performance_schema', 'sys', 'mysql')
+            order by routine_schem, routine_name, line
+        </routines>
+        <views>
+            select
+            NULL AS table_cat,
+            v.TABLE_SCHEMA as table_schem,
+            v.TABLE_NAME as table_name,
+            NULL AS remarks,
+            v.VIEW_DEFINITION as text,
+            '' AS database_info
+            from
+            information_schema.views v
+            #where v.TABLE_SCHEMA = '数据库名称'
+            where v.TABLE_SCHEMA not in ('information_schema', 'performance_schema', 'sys', 'mysql')
+            order by
+            table_schem, table_name
+        </views>
+        <pks>
+            select
+            null as TABLE_CAT,
+            pk.TABLE_SCHEMA as TABLE_SCHEM,
+            pk.TABLE_NAME,
+            pk.COLUMN_NAME,
+            pk.SEQ_IN_INDEX as KEY_SEQ,
+            pk.INDEX_NAME as PK_NAME,
+            '' AS database_info
+            from
+            information_schema.statistics pk
+            where
+            (index_name = 'PRIMARY' or index_name = 'PRI')
+            # and table_schema = '数据库名称'
+            and pk.TABLE_SCHEMA not in ('information_schema', 'performance_schema', 'sys', 'mysql')
+            order by
+            TABLE_NAME, KEY_SEQ
+        </pks>
+    </mysql>
+    <oracle>
+        <tables>
+            SELECT
+            NULL AS table_cat,
+            o.owner AS table_schem,
+            o.object_name AS table_name,
+            o.object_type AS table_type,
+            c.comments AS remarks,
+            '' AS database_info
+            FROM
+            dba_objects o, dba_tab_comments c
+            WHERE
+            -- o.owner = :1 AND
+            o.owner NOT IN ( 'APPQOSSYS', 'DBSNMP', 'ORACLE_OCM', 'OUTLN', 'PUBLIC', 'SYS', 'SYSTEM', 'WMSYS' )
+            AND o.object_type IN ( 'TABLE' )
+            AND o.owner = c.owner ( + )
+            AND o.object_name = c.table_name ( + )
+            ORDER BY
+            table_type, table_schem, table_name
+        </tables>
+        <columns>
+            SELECT
+            NULL AS table_cat,
+            t.owner AS table_schem,
+            t.table_name AS table_name,
+            t.column_name AS column_name,
+            NULL AS data_type,
+            t.data_type AS type_name,
+            DECODE (t.data_precision,null,DECODE(t.data_type,'NUMBER', DECODE(t.data_scale, null, 0, 38), DECODE (t.data_type, 'CHAR', t.char_length,'VARCHAR', t.char_length,'VARCHAR2', t.char_length,'NVARCHAR2', t.char_length,'NCHAR', t.char_length,'NUMBER', 0,t.data_length)),t.data_precision)
+            AS column_size,
+            -- 0 AS buffer_length,
+            DECODE (t.data_type,'NUMBER', DECODE(t.data_precision,null, DECODE(t.data_scale, null, -127, t.data_scale),t.data_scale),t.data_scale) AS decimal_digits,
+            -- 10 AS num_prec_radix,
+            -- DECODE (t.nullable, 'N', 0, 1) AS nullable,
+            c.comments AS remarks,
+            t.data_default AS column_def,
+            -- 0 AS sql_data_type,
+            -- 0 AS sql_datetime_sub,
+            -- t.data_length AS char_octet_length,
+            t.column_id AS ordinal_position,
+            DECODE (t.nullable, 'N', 'NO', 'YES') AS is_nullable,
+            -- null as SCOPE_CATALOG,
+            -- null as SCOPE_SCHEMA,
+            -- null as SCOPE_TABLE,
+            -- null as SOURCE_DATA_TYPE,
+            'NO' as IS_AUTOINCREMENT,
+            '' AS database_info
+            FROM
+            dba_tab_columns t, dba_col_comments c
+            WHERE
+            -- t.owner = :1 AND
+            t.owner NOT IN ( 'APPQOSSYS', 'DBSNMP', 'ORACLE_OCM', 'OUTLN', 'PUBLIC', 'SYS', 'SYSTEM', 'WMSYS' )
+            AND t.owner = c.owner (+)
+            AND t.table_name = c.table_name (+)
+            AND t.column_name = c.column_name (+)
+            ORDER BY
+            table_schem, table_name, ordinal_position
+        </columns>
+        <index>
+            SELECT
+            NULL AS table_cat,
+            i.owner AS table_schem,
+            i.table_name,
+            decode( i.uniqueness, 'UNIQUE', 0, 1 ) AS non_unique,
+            NULL AS index_qualifier,
+            i.index_name,
+            1 AS TYPE,
+            c.column_position AS ordinal_position,
+            c.column_name,
+            NULL AS asc_or_desc,
+            i.distinct_keys AS cardinality,
+            i.leaf_blocks AS pages,
+            NULL AS filter_condition,
+            '' AS database_info
+            FROM
+            sys.dba_indexes i, sys.dba_ind_columns c
+            WHERE
+            -- i.owner = : 1 AND
+            i.owner NOT IN ( 'APPQOSSYS', 'DBSNMP', 'ORACLE_OCM', 'OUTLN', 'PUBLIC', 'SYS', 'SYSTEM', 'WMSYS' )
+            AND i.index_name = c.index_name
+            AND i.table_owner = c.table_owner
+            AND i.table_name = c.table_name
+            AND i.owner = c.index_owner
+            ORDER BY
+            table_name, index_name, ordinal_position
+        </index>
+        <routines>
+            SELECT
+            NULL AS routine_cat,
+            owner AS routine_schem,
+            name AS routine_name,
+            TYPE AS routine_type,
+            line,
+            text,
+            '' AS database_info
+            FROM
+            sys.dba_source
+            WHERE
+            -- owner = : 1 AND
+            owner NOT IN ( 'APPQOSSYS', 'DBSNMP', 'ORACLE_OCM', 'OUTLN', 'PUBLIC', 'SYS', 'SYSTEM', 'WMSYS' )
+            AND TYPE IN ( 'FUNCTION', 'PROCEDURE' )
+            ORDER BY
+            routine_schem,routine_name,line
+        </routines>
+        <views>
+            SELECT
+            NULL AS table_cat,
+            v.owner AS table_schem,
+            v.view_name AS table_name,
+            c.comments AS remarks,
+            v.text,
+            '' AS database_info
+            FROM
+            sys.dba_views v,
+            sys.dba_tab_comments c
+            WHERE
+            -- v.owner = : 1 AND
+            v.owner NOT IN ( 'APPQOSSYS', 'DBSNMP', 'ORACLE_OCM', 'OUTLN', 'PUBLIC', 'SYS', 'SYSTEM', 'WMSYS' )
+            AND v.owner = c.owner
+            AND v.view_name = c.table_name
+            ORDER BY
+            table_schem,table_name
+        </views>
+        <pks>
+            SELECT
+            NULL AS table_cat,
+            c.owner AS table_schem,
+            c.table_name,
+            c.column_name,
+            c.position AS key_seq,
+            c.constraint_name AS pk_name,
+            '' AS database_info
+            FROM
+            sys.dba_cons_columns c, sys.dba_constraints k
+            WHERE
+            k.constraint_type = 'P'
+            -- AND k.owner = : 1
+            AND k.owner NOT IN ( 'APPQOSSYS', 'DBSNMP', 'ORACLE_OCM', 'OUTLN', 'PUBLIC', 'SYS', 'SYSTEM', 'WMSYS' )
+            AND k.constraint_name = c.constraint_name
+            AND k.table_name = c.table_name
+            AND k.owner = c.owner
+            ORDER BY
+            table_name,key_seq
+        </pks>
+    </oracle>
+    <sqlserver>
+        <tables>
+            SELECT
+            NULL AS TABLE_CAT,
+            (convert(sysname,db_name())) AS TABLE_SCHEM,
+            a.name AS TABLE_NAME,
+            CASE
+            WHEN a.type_desc= 'USER_TABLE' THEN
+            'TABLE'
+            END AS TABLE_TYPE,
+            NULL AS remarks,
+            '' AS DATABASE_INFO
+            FROM
+            sys.all_objects a,
+            sys.schemas c
+            WHERE
+            a.type_desc= 'USER_TABLE'
+            AND a.schema_id = c.schema_id
+            AND c.name NOT IN ('sys','INFORMATION_SCHEMA')
+        </tables>
+        <columns>
+            SELECT
+            NULL as TABLE_CAT,
+            convert(sysname,db_name()) AS TABLE_SCHEM,
+            A.name AS TABLE_NAME,
+            B.name AS COLUMN_NAME,
+            0 as DATA_TYPE,
+            st.name as TYPE_NAME,
+            0 as COLUMN_SIZE,
+            0 as DECIMAL_DIGITS,
+            CONVERT(varchar(200), C.value) AS REMARKS,
+            NULL as COLUMN_DEF,
+            NULL as ORDINAL_POSITION,
+            CASE WHEN B.is_nullable = '1' THEN 'YES' ELSE 'NO' END IS_NULLABLE,
+            'NO' as IS_AUTOINCREMENT,
+            '' as database_info
+            FROM
+            sys.tables A
+            INNER JOIN sys.columns B ON B.object_id = A.object_id
+            INNER JOIN systypes st ON st.xusertype = B.system_type_id
+            LEFT JOIN sys.extended_properties C ON C.major_id = B.object_id
+            AND C.minor_id = B.column_id
+        </columns>
+        <index>
+            SELECT
+            NULL AS TABLE_CAT,
+            (convert(sysname,db_name())) AS TABLE_SCHEM,
+            a.name AS TABLE_NAME,
+            b.is_unique AS NON_UNIQUE,
+            null AS INDEX_QUALIFIER,
+            b.name AS INDEX_NAME,
+            1 AS TYPE,
+            NULL AS ORDINAL_POSITION,
+            d.name AS COLUMN_NAME,
+            NULL AS ASC_OR_DESC,
+            NULL AS CARDINALITY,
+            NULL AS PAGES,
+            NULL AS FILTER_CONDITION,
+            '' AS database_info
+            FROM
+            sys.all_objects a,
+            sys.indexes b,
+            sys.schemas c,
+            sys.all_columns d
+            WHERE
+            a.object_id = b.object_id
+            AND a.schema_id = c.schema_id
+            AND b.object_id = d.object_id
+            AND c.name NOT IN ('sys','INFORMATION_SCHEMA')
+        </index>
+        <routines>
+            SELECT
+            NULL AS routine_cat,
+            (convert(sysname,db_name())) AS routine_schem,
+            a.name AS routine_name,
+            CASE
+            WHEN a.type_desc= 'SQL_STORED_PROCEDURE' THEN
+            'PROCEDURE'
+            WHEN a.type_desc= 'SQL_INLINE_TABLE_VALUED_FUNCTION' THEN
+            'FUNCTION'
+            END AS routine_type,
+            1 AS line,
+            b.definition AS text,
+            '' AS database_info
+            FROM
+            sys.all_objects a,
+            sys.all_sql_modules b,
+            sys.schemas c
+            WHERE
+            a.object_id = b.object_id
+            AND a.schema_id = c.schema_id
+            AND ( a.type_desc= 'SQL_STORED_PROCEDURE' OR a.type_desc= 'SQL_INLINE_TABLE_VALUED_FUNCTION' )
+            AND c.name NOT IN ('sys','INFORMATION_SCHEMA')
+        </routines>
+        <views>
+            SELECT
+            NULL AS table_cat,
+            (convert(sysname,db_name())) AS TABLE_SCHEM,
+            a.name AS TABLE_NAME,
+            NULL AS remarks,
+            b.definition AS text,
+            '' AS DATABASE_INFO
+            FROM
+            sys.all_views a,
+            sys.all_sql_modules b,
+            sys.schemas c
+            WHERE
+            a.object_id = b.object_id
+            AND a.schema_id = c.schema_id
+            AND c.name NOT IN ('sys','INFORMATION_SCHEMA')
+        </views>
+        <pks>
+            select
+            null as TABLE_CAT,
+            TABLE_SCHEM = convert(sysname,db_name()),
+            TABLE_NAME = convert(sysname,o.name),
+            COLUMN_NAME = convert(sysname,c.name),
+            KEY_SEQ = convert (smallint,
+            case
+            when c.name = index_col(o.name, i.index_id,  1) then 1
+            when c.name = index_col(o.name, i.index_id,  2) then 2
+            when c.name = index_col(o.name, i.index_id,  3) then 3
+            when c.name = index_col(o.name, i.index_id,  4) then 4
+            when c.name = index_col(o.name, i.index_id,  5) then 5
+            when c.name = index_col(o.name, i.index_id,  6) then 6
+            when c.name = index_col(o.name, i.index_id,  7) then 7
+            when c.name = index_col(o.name, i.index_id,  8) then 8
+            when c.name = index_col(o.name, i.index_id,  9) then 9
+            when c.name = index_col(o.name, i.index_id, 10) then 10
+            when c.name = index_col(o.name, i.index_id, 11) then 11
+            when c.name = index_col(o.name, i.index_id, 12) then 12
+            when c.name = index_col(o.name, i.index_id, 13) then 13
+            when c.name = index_col(o.name, i.index_id, 14) then 14
+            when c.name = index_col(o.name, i.index_id, 15) then 15
+            when c.name = index_col(o.name, i.index_id, 16) then 16
+            end),
+            PK_NAME = convert(sysname,k.name),
+            '' as database_info
+            from
+            sys.indexes i,
+            sys.all_columns c,
+            sys.all_objects o,
+            sys.key_constraints k
+            where
+            ( o.type ='S' or o.type='U') and
+            o.object_id = c.object_id and
+            o.object_id = i.object_id and
+            k.parent_object_id = o.object_id and
+            k.unique_index_id = i.index_id and
+            i.is_primary_key = 1 and
+            (c.name = index_col (o.name, i.index_id,  1) or
+            c.name = index_col (o.name, i.index_id,  2) or
+            c.name = index_col (o.name, i.index_id,  3) or
+            c.name = index_col (o.name, i.index_id,  4) or
+            c.name = index_col (o.name, i.index_id,  5) or
+            c.name = index_col (o.name, i.index_id,  6) or
+            c.name = index_col (o.name, i.index_id,  7) or
+            c.name = index_col (o.name, i.index_id,  8) or
+            c.name = index_col (o.name, i.index_id,  9) or
+            c.name = index_col (o.name, i.index_id, 10) or
+            c.name = index_col (o.name, i.index_id, 11) or
+            c.name = index_col (o.name, i.index_id, 12) or
+            c.name = index_col (o.name, i.index_id, 13) or
+            c.name = index_col (o.name, i.index_id, 14) or
+            c.name = index_col (o.name, i.index_id, 15) or
+            c.name = index_col (o.name, i.index_id, 16))
+            AND c.name NOT IN ('sys','INFORMATION_SCHEMA')
+        </pks>
+    </sqlserver>
+</datasource>
