@@ -74,21 +74,21 @@
             case
             when ROUTINE_TYPE = 'PROCEDURE'
             then
-            CONCAT("create procedure ",
+            CONCAT('create procedure ',
             ROUTINE_NAME,
-            case when parameters is not null then CONCAT("\n(", parameters, ")\n") else "()\n" end,
+            case when parameters is not null then CONCAT('\n(', parameters, ')\n') else '()\n' end,
             SQL_DATA_ACCESS,
-            "\n",
-            CONCAT("COMMENT '", ROUTINE_COMMENT, "'\n"),
+            '\n',
+            CONCAT('COMMENT '', ROUTINE_COMMENT, ''\n'),
             ROUTINE_DEFINITION)
             else
-            CONCAT("create function ",
+            CONCAT('create function ',
             ROUTINE_NAME,
-            case when parameters is not null then CONCAT("\n(", parameters, ")\n") else "()\n" end,
-            case when return_v is not null then CONCAT("RETURNS ", return_v, "\n") else "\n" end,
+            case when parameters is not null then CONCAT('\n(', parameters, ')\n') else '()\n' end,
+            case when return_v is not null then CONCAT('RETURNS ', return_v, '\n') else '\n' end,
             SQL_DATA_ACCESS,
-            "\n",
-            CONCAT("COMMENT '", ROUTINE_COMMENT, "'\n"),
+            '\n',
+            CONCAT('COMMENT '', ROUTINE_COMMENT, ''\n'),
             ROUTINE_DEFINITION)
             end
             as text,
@@ -108,12 +108,12 @@
             SPECIFIC_NAME,
             (case
             when ROUTINE_TYPE = 'PROCEDURE'
-            then CONCAT(PARAMETER_MODE, " ", PARAMETER_NAME, " ", DTD_IDENTIFIER)
-            else CONCAT(PARAMETER_NAME, " ", DTD_IDENTIFIER) END)
+            then CONCAT(PARAMETER_MODE, ' ', PARAMETER_NAME, ' ', DTD_IDENTIFIER)
+            else CONCAT(PARAMETER_NAME, ' ', DTD_IDENTIFIER) END)
             as para
             from information_schema.PARAMETERS
             where ROUTINE_TYPE in ('FUNCTION', 'PROCEDURE')
-            and ORDINAL_POSITION > 0
+            and ORDINAL_POSITION > 0                                                                                                                                                           
             order by SPECIFIC_SCHEMA, SPECIFIC_NAME, ORDINAL_POSITION
             ) as t
             group by SPECIFIC_SCHEMA, SPECIFIC_NAME
@@ -312,7 +312,7 @@
     </oracle>
     <sqlserver>
         <tables>
-            SELECT
+			SELECT
             NULL AS TABLE_CAT,
             (convert(sysname,db_name())) AS TABLE_SCHEM,
             a.name AS TABLE_NAME,
@@ -320,68 +320,88 @@
             WHEN a.type_desc= 'USER_TABLE' THEN
             'TABLE'
             END AS TABLE_TYPE,
-            NULL AS remarks,
+            b.value AS remarks,
             '' AS DATABASE_INFO
             FROM
             sys.all_objects a,
-            sys.schemas c
+            sys.schemas c,
+            (SELECT DISTINCT
+            d.name as name,
+            CONVERT(VARCHAR(200),f.value)as value 
+            FROM
+            sys.syscolumns a
+            LEFT JOIN sys.systypes b ON a.xusertype= b.xusertype
+            INNER JOIN sys.sysobjects d ON a.id= d.id
+            AND d.xtype= 'U'
+            AND d.name != 'dtproperties'
+            LEFT JOIN sys.syscomments e ON a.cdefault= e.id
+            LEFT JOIN sys.extended_properties g ON a.id= G.major_id
+            AND a.colid= g.minor_id
+            LEFT JOIN sys.extended_properties f ON d.id= f.major_id
+            AND f.minor_id= 0) b
             WHERE
-            a.type_desc= 'USER_TABLE'
+            b.name=a.name
+            AND a.type_desc= 'USER_TABLE'
             AND a.schema_id = c.schema_id
             AND c.name NOT IN ('sys','INFORMATION_SCHEMA')
         </tables>
         <columns>
-            SELECT
-            NULL as TABLE_CAT,
-            convert(sysname,db_name()) AS TABLE_SCHEM,
-            A.name AS TABLE_NAME,
-            B.name AS COLUMN_NAME,
-            0 as DATA_TYPE,
-            st.name as TYPE_NAME,
-            0 as COLUMN_SIZE,
-            0 as DECIMAL_DIGITS,
-            CONVERT(varchar(200), C.value) AS REMARKS,
-            NULL as COLUMN_DEF,
-            NULL as ORDINAL_POSITION,
-            CASE WHEN B.is_nullable = '1' THEN 'YES' ELSE 'NO' END IS_NULLABLE,
-            'NO' as IS_AUTOINCREMENT,
-            '' as database_info
-            FROM
-            sys.tables A
-            INNER JOIN sys.columns B ON B.object_id = A.object_id
-            INNER JOIN systypes st ON st.xusertype = B.system_type_id
-            LEFT JOIN sys.extended_properties C ON C.major_id = B.object_id
-            AND C.minor_id = B.column_id
+			select
+			null as TABLE_CAT,
+			convert(sysname,db_name()) AS TABLE_SCHEM,
+			c.name as TABLE_NAME,
+			a.name as COLUMN_NAME,
+			B.xtype AS DATA_TYPE,
+			b.name as TYPE_NAME,
+			a.length AS COLUMN_SIZE ,
+			IIF(a.xusertype!=56 and a.xusertype!=127
+            and a.xusertype!=104 and a.xusertype!=106
+            and a.xusertype!= 60 and a.xusertype!=108
+            and a.xusertype!=122 and a.xusertype!=48,
+            a.scale,
+			IIF(a.prec!=0,a.scale,IIF(a.scale!=null,a.scale,-127)))
+			as DECIMAL_DIGITS,
+			CONVERT(varchar(200), d.value) AS REMARKS,
+			NULL as COLUMN_DEF,
+			cast(a.colorder as varchar(20)) as ORDINAL_POSITION,
+			CASE WHEN A.isnullable = '1' THEN 'YES' ELSE 'NO' END IS_NULLABLE,
+			'NO' as IS_AUTOINCREMENT,
+			'' as database_info
+			FROM  syscolumns  a left join systypes b
+			on  a.xtype=b.xusertype
+			inner join sysobjects c
+			on a.id=c.id  and  c.xtype='U'
+			LEFT JOIN sys.extended_properties d ON d.major_id = a.id AND d.minor_id = a.colorder
         </columns>
         <index>
             SELECT
-            NULL AS TABLE_CAT,
-            (convert(sysname,db_name())) AS TABLE_SCHEM,
-            a.name AS TABLE_NAME,
-            b.is_unique AS NON_UNIQUE,
-            null AS INDEX_QUALIFIER,
-            b.name AS INDEX_NAME,
-            1 AS TYPE,
-            NULL AS ORDINAL_POSITION,
-            d.name AS COLUMN_NAME,
-            NULL AS ASC_OR_DESC,
-            NULL AS CARDINALITY,
-            NULL AS PAGES,
-            NULL AS FILTER_CONDITION,
-            '' AS database_info
-            FROM
-            sys.all_objects a,
-            sys.indexes b,
-            sys.schemas c,
-            sys.all_columns d
-            WHERE
-            a.object_id = b.object_id
-            AND a.schema_id = c.schema_id
-            AND b.object_id = d.object_id
-            AND c.name NOT IN ('sys','INFORMATION_SCHEMA')
+			NULL AS TABLE_CAT,
+			(convert(sysname,db_name())) AS TABLE_SCHEM,
+			a.name AS TABLE_NAME,
+			b.is_unique AS NON_UNIQUE,
+			null AS INDEX_QUALIFIER,
+			b.name AS INDEX_NAME,
+			1 AS TYPE,
+			NULL AS ORDINAL_POSITION,
+			d.name AS COLUMN_NAME,
+			NULL AS ASC_OR_DESC,
+			0 AS CARDINALITY,
+			cast(B.index_id as varchar(20)) AS PAGES,
+			NULL AS FILTER_CONDITION,
+			'' AS database_info
+			FROM
+			sys.all_objects a,
+			sys.indexes b,
+			sys.schemas c,
+			sys.all_columns d
+			WHERE
+			a.object_id = b.object_id
+			AND a.schema_id = c.schema_id
+			AND b.object_id = d.object_id
+			AND c.name NOT IN ('sys','INFORMATION_SCHEMA')
         </index>
         <routines>
-            SELECT
+			SELECT
             NULL AS routine_cat,
             (convert(sysname,db_name())) AS routine_schem,
             a.name AS routine_name,
